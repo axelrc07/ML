@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Brain, 
-  History, 
-  PlusCircle, 
-  Trash2, 
-  Calendar, 
-  Users, 
-  Layers, 
-  Layout, 
-  CheckCircle2, 
+import {
+  Brain,
+  History,
+  PlusCircle,
+  Trash2,
+  Calendar,
+  Users,
+  Layers,
+  Layout,
+  CheckCircle2,
   XCircle,
   TrendingUp,
   Clock,
@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [prediction, setPrediction] = useState<number | null>(null);
 
   useEffect(() => {
+    document.title = "Solventik — Estimador de Tiempos de Proyecto";
     setHistory(getHistory());
   }, []);
 
@@ -50,7 +51,7 @@ const App: React.FC = () => {
         body: JSON.stringify(formData)
       });
       const data = await response.json();
-      
+
       if (data.status === 'success') {
         setPrediction(data.prediction);
       } else {
@@ -64,18 +65,29 @@ const App: React.FC = () => {
 
   const handleSave = () => {
     if (prediction === null) return;
-    
+
     const newProject: ProjectData = {
       id: Date.now().toString(),
       ...formData,
       dias: prediction,
       fecha: new Date().toISOString().split('T')[0]
     };
-    
+
     saveToHistory(newProject);
-    setHistory(getHistory());
+    const updatedHistory = getHistory();
+    setHistory(updatedHistory);
+
+    // Entrenamiento completamente automático en el fondo
+    fetch('http://127.0.0.1:8000/train', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedHistory)
+    })
+      .then(res => res.json())
+      .then(data => console.log("Python reentrenado:", data))
+      .catch(err => console.error("Error al reentrenar en el fondo:", err));
+
     setPrediction(null);
-    // Optionally switch to history tab or show success message
     setActiveTab('history');
   };
 
@@ -83,6 +95,16 @@ const App: React.FC = () => {
     if (window.confirm('¿Estás seguro de que deseas limpiar todo el historial?')) {
       clearHistory();
       setHistory([]);
+      
+      // También notificamos al backend para resetear el modelo
+      fetch('http://127.0.0.1:8000/train', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([])
+      })
+        .then(res => res.json())
+        .then(data => console.log("Python reseteado:", data))
+        .catch(err => console.error("Error al resetear Python:", err));
     }
   };
 
@@ -97,19 +119,19 @@ const App: React.FC = () => {
         if (Array.isArray(json)) {
           localStorage.setItem('solventik_historial', JSON.stringify(json));
           setHistory(json);
-          
+
           // Reentrenar el modelo en Python con los nuevos datos
           fetch('http://127.0.0.1:8000/train', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(json)
           })
-          .then(res => res.json())
-          .then(data => {
-            console.log("Python reentrenado:", data);
-            alert(`Dataset importado correctamente y Scikit-Learn reentrenado.\nProyectos cargados: ${json.length}`);
-          })
-          .catch(err => alert("Datos guardados, pero falló la conexión con Python para reentrenar."));
+            .then(res => res.json())
+            .then(data => {
+              console.log("Python reentrenado:", data);
+              alert(`Dataset importado correctamente y Scikit-Learn reentrenado.\nProyectos cargados: ${json.length}`);
+            })
+            .catch(err => alert("Datos guardados, pero falló la conexión con Python para reentrenar."));
         } else {
           alert('El archivo JSON debe contener un arreglo de proyectos.');
         }
@@ -156,8 +178,8 @@ const App: React.FC = () => {
             onClick={() => setActiveTab('new')}
             className={cn(
               "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
-              activeTab === 'new' 
-                ? "bg-solventik-blue text-white shadow-lg shadow-blue-500/20" 
+              activeTab === 'new'
+                ? "bg-solventik-blue text-white shadow-lg shadow-blue-500/20"
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
             )}
           >
@@ -168,8 +190,8 @@ const App: React.FC = () => {
             onClick={() => setActiveTab('history')}
             className={cn(
               "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
-              activeTab === 'history' 
-                ? "bg-solventik-blue text-white shadow-lg shadow-blue-500/20" 
+              activeTab === 'history'
+                ? "bg-solventik-blue text-white shadow-lg shadow-blue-500/20"
                 : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
             )}
           >
@@ -193,13 +215,13 @@ const App: React.FC = () => {
                   <LayoutDashboard className="w-5 h-5 text-solventik-blue" />
                   <h2 className="text-xl font-semibold">Parámetros del Proyecto</h2>
                 </div>
-                
+
                 <form onSubmit={handlePredict} className="space-y-5">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-400">Tipo de sistema</label>
                     <select
                       value={formData.tipo}
-                      onChange={(e) => setFormData({...formData, tipo: e.target.value as ProjectType})}
+                      onChange={(e) => setFormData({ ...formData, tipo: e.target.value as ProjectType })}
                       className="input-field w-full"
                     >
                       <option value="Colegio">Colegio</option>
@@ -218,7 +240,7 @@ const App: React.FC = () => {
                         min="1"
                         max="20"
                         value={formData.modulos}
-                        onChange={(e) => setFormData({...formData, modulos: parseInt(e.target.value)})}
+                        onChange={(e) => setFormData({ ...formData, modulos: parseInt(e.target.value) })}
                         className="input-field w-full"
                       />
                     </div>
@@ -231,7 +253,7 @@ const App: React.FC = () => {
                         min="1"
                         max="10"
                         value={formData.devs}
-                        onChange={(e) => setFormData({...formData, devs: parseInt(e.target.value)})}
+                        onChange={(e) => setFormData({ ...formData, devs: parseInt(e.target.value) })}
                         className="input-field w-full"
                       />
                     </div>
@@ -242,7 +264,7 @@ const App: React.FC = () => {
                     <div className="flex gap-2 p-1 bg-slate-900 rounded-lg border border-slate-700 w-fit">
                       <button
                         type="button"
-                        onClick={() => setFormData({...formData, diseno: true})}
+                        onClick={() => setFormData({ ...formData, diseno: true })}
                         className={cn(
                           "px-4 py-1.5 rounded-md text-sm font-medium transition-all",
                           formData.diseno ? "bg-solventik-blue text-white" : "text-slate-500 hover:text-slate-300"
@@ -252,7 +274,7 @@ const App: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setFormData({...formData, diseno: false})}
+                        onClick={() => setFormData({ ...formData, diseno: false })}
                         className={cn(
                           "px-4 py-1.5 rounded-md text-sm font-medium transition-all",
                           !formData.diseno ? "bg-solventik-blue text-white" : "text-slate-500 hover:text-slate-300"
@@ -272,7 +294,7 @@ const App: React.FC = () => {
                       min="1"
                       max="10"
                       value={formData.revisiones}
-                      onChange={(e) => setFormData({...formData, revisiones: parseInt(e.target.value)})}
+                      onChange={(e) => setFormData({ ...formData, revisiones: parseInt(e.target.value) })}
                       className="input-field w-full"
                     />
                   </div>
@@ -297,20 +319,20 @@ const App: React.FC = () => {
                       <div className="absolute top-0 right-0 p-4 opacity-10">
                         <TrendingUp className="w-24 h-24 text-blue-500" />
                       </div>
-                      
+
                       <h3 className="text-blue-400 font-semibold uppercase tracking-wider text-sm mb-2">Resultado Estimado</h3>
                       <div className="flex items-center justify-center gap-3 mb-2">
                         <span className="text-7xl font-black text-white">{prediction}</span>
                         <span className="text-xl text-slate-400 self-end mb-2">días de desarrollo</span>
                       </div>
-                      
+
                       <p className="text-slate-400 mb-8">
                         Rango estimado: <span className="text-white font-medium">{prediction - 4} — {prediction + 4} días</span>
                       </p>
 
                       <div className="space-y-4">
                         <div className="w-full bg-slate-900 rounded-full h-3 border border-slate-700 overflow-hidden">
-                          <motion.div 
+                          <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${Math.min(((prediction - 5) / (60 - 5)) * 100, 100)}%` }}
                             transition={{ duration: 1, ease: "easeOut" }}
@@ -323,7 +345,7 @@ const App: React.FC = () => {
                         </div>
                       </div>
 
-                      <button 
+                      <button
                         onClick={handleSave}
                         className="mt-10 w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-slate-600 transition-all flex items-center justify-center gap-2 group"
                       >
@@ -352,22 +374,22 @@ const App: React.FC = () => {
             >
               {/* Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <MetricCard 
-                  title="Total de Proyectos" 
-                  value={metrics.total} 
-                  icon={<Layout className="w-5 h-5" />} 
+                <MetricCard
+                  title="Total de Proyectos"
+                  value={metrics.total}
+                  icon={<Layout className="w-5 h-5" />}
                   color="blue"
                 />
-                <MetricCard 
-                  title="Promedio de Días" 
-                  value={`${metrics.avg} d`} 
-                  icon={<Clock className="w-5 h-5" />} 
+                <MetricCard
+                  title="Promedio de Días"
+                  value={`${metrics.avg} d`}
+                  icon={<Clock className="w-5 h-5" />}
                   color="blue"
                 />
-                <MetricCard 
-                  title="Proyecto más Largo" 
-                  value={`${metrics.longest} d`} 
-                  icon={<Calendar className="w-5 h-5" />} 
+                <MetricCard
+                  title="Proyecto más Largo"
+                  value={`${metrics.longest} d`}
+                  icon={<Calendar className="w-5 h-5" />}
                   color="blue"
                 />
               </div>
@@ -383,15 +405,15 @@ const App: React.FC = () => {
                     <label className="cursor-pointer text-xs font-bold text-solventik-blue hover:text-blue-300 transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20">
                       <Upload className="w-3.5 h-3.5" />
                       IMPORTAR JSON
-                      <input 
-                        type="file" 
-                        accept=".json" 
-                        className="hidden" 
-                        onChange={handleImportJSON} 
+                      <input
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={handleImportJSON}
                       />
                     </label>
                     {history.length > 0 && (
-                      <button 
+                      <button
                         onClick={handleClear}
                         className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-red-400/10 rounded-lg border border-red-400/20"
                       >
@@ -423,8 +445,8 @@ const App: React.FC = () => {
                               <span className={cn(
                                 "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase",
                                 project.tipo === 'Colegio' ? "bg-blue-400/10 text-blue-400 border border-blue-400/20" :
-                                project.tipo === 'Restaurante' ? "bg-purple-400/10 text-purple-400 border border-purple-400/20" :
-                                "bg-slate-400/10 text-slate-400 border border-slate-400/20"
+                                  project.tipo === 'Restaurante' ? "bg-purple-400/10 text-purple-400 border border-purple-400/20" :
+                                    "bg-slate-400/10 text-slate-400 border border-slate-400/20"
                               )}>
                                 {project.tipo}
                               </span>

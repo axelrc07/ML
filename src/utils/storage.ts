@@ -19,5 +19,5 @@ export const saveToHistory = (project: ProjectData) => {
 };
 
 export const clearHistory = () => {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
 };

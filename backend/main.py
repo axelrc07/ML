@@ -39,8 +39,9 @@ async def train_model(request: Request):
     global is_trained
     dataset = await request.json()
     
-    if not dataset or not isinstance(dataset, list):
-        return {"status": "error", "message": "El dataset es inválido o está vacío"}
+    if not dataset or not isinstance(dataset, list) or len(dataset) == 0:
+        is_trained = False # 🧠 ¡Borramos la memoria de Python!
+        return {"status": "error", "message": "El dataset está vacío. El modelo ha sido reseteado y ha olvidado su entrenamiento."}
     
     X = []
     y = []
