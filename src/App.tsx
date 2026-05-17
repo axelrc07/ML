@@ -12,11 +12,11 @@ import {
   XCircle,
   TrendingUp,
   Clock,
-  LayoutDashboard
+  LayoutDashboard,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ProjectData, PredictionInput, ProjectType } from './types';
-import { calculateDays } from './utils/calculator';
 import { getHistory, saveToHistory, clearHistory } from './utils/storage';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -41,10 +41,25 @@ const App: React.FC = () => {
     setHistory(getHistory());
   }, []);
 
-  const handlePredict = (e: React.FormEvent) => {
+  const handlePredict = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = calculateDays(formData);
-    setPrediction(result);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        setPrediction(data.prediction);
+      } else {
+        alert("Error del servidor Python: " + data.message);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo conectar a Python. ¿Tienes encendido el servidor FastAPI?");
+    }
   };
 
   const handleSave = () => {
@@ -69,6 +84,42 @@ const App: React.FC = () => {
       clearHistory();
       setHistory([]);
     }
+  };
+
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (Array.isArray(json)) {
+          localStorage.setItem('solventik_historial', JSON.stringify(json));
+          setHistory(json);
+          
+          // Reentrenar el modelo en Python con los nuevos datos
+          fetch('http://127.0.0.1:8000/train', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(json)
+          })
+          .then(res => res.json())
+          .then(data => {
+            console.log("Python reentrenado:", data);
+            alert(`Dataset importado correctamente y Scikit-Learn reentrenado.\nProyectos cargados: ${json.length}`);
+          })
+          .catch(err => alert("Datos guardados, pero falló la conexión con Python para reentrenar."));
+        } else {
+          alert('El archivo JSON debe contener un arreglo de proyectos.');
+        }
+      } catch (error) {
+        console.error(error);
+        alert('Error al leer el archivo JSON.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const metrics = useMemo(() => {
@@ -328,15 +379,27 @@ const App: React.FC = () => {
                     <History className="w-5 h-5 text-solventik-blue" />
                     Historial de Predicciones
                   </h2>
-                  {history.length > 0 && (
-                    <button 
-                      onClick={handleClear}
-                      className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-red-400/10 rounded-lg border border-red-400/20"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      LIMPIAR HISTORIAL
-                    </button>
-                  )}
+                  <div className="flex gap-3">
+                    <label className="cursor-pointer text-xs font-bold text-solventik-blue hover:text-blue-300 transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                      <Upload className="w-3.5 h-3.5" />
+                      IMPORTAR JSON
+                      <input 
+                        type="file" 
+                        accept=".json" 
+                        className="hidden" 
+                        onChange={handleImportJSON} 
+                      />
+                    </label>
+                    {history.length > 0 && (
+                      <button 
+                        onClick={handleClear}
+                        className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors flex items-center gap-1.5 px-3 py-1.5 bg-red-400/10 rounded-lg border border-red-400/20"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        LIMPIAR HISTORIAL
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">

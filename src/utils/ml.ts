@@ -27,20 +27,20 @@ export class LinearRegressionModel {
   }
 
   // Extract features as an array of numbers
-  private extractFeatures(data: ProjectData | PredictionInput): number[] {
+  private extractFeatures(data: any): number[] {
     return [
-      encodeTipo(data.tipo),
-      data.modulos,
-      data.devs,
+      encodeTipo(data.tipo || 'Otro'),
+      data.modulos || 1,
+      data.devs || 1,
       data.diseno ? 1 : 0,
-      data.revisiones,
-      data.complejidad,
-      data.integraciones,
-      data.experienciaEquipo,
-      data.plataformas,
-      data.idiomas,
-      data.reutilizacion,
-      data.urgencia
+      data.revisiones || 1,
+      data.complejidad || 3, // Valor promedio si no existe
+      data.integraciones || 2,
+      data.experienciaEquipo || 3,
+      data.plataformas || 1,
+      data.idiomas || 1,
+      data.reutilizacion || 20,
+      data.urgencia || 3
     ];
   }
 
